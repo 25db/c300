@@ -1,0 +1,137 @@
+# VillagerTradesEdit 配置
+# ============================================================
+# 全局设置
+settings:
+  # 是否在玩家右键村民时自动覆盖交易
+  apply-on-interact: true
+  # 是否在村民生成 / 升级时自动覆盖交易
+  apply-on-spawn: true
+  # 覆盖模式:
+  #   REPLACE  -> 完全替换为下面定义的交易
+  #   APPEND   -> 在原交易后追加
+  #   PREPEND  -> 在原交易前插入
+  mode: REPLACE
+  # 是否限制交易次数 (0 = 无限)
+  max-uses: 0
+  # 是否给村民奖励经验 (村民升级所需)
+  reward-exp: true
+  # 物品使用次数后是否消耗 (价格提升)
+  price-multiplier: 0.05
+
+# ============================================================
+# 交易定义
+# trades:
+#   <职业>:
+#     <等级 1-5>:
+#       - give1: <第一件输入物品 Material>
+#         give1_amount: <数量>
+#         give2: <第二件输入物品 Material, 可选>
+#         give2_amount: <数量>
+#         result: <输出物品 Material>
+#         result_amount: <数量>
+#         max_uses: <最大使用次数, 可选, 默认读取全局>
+#
+# 职业: NONE, ARMORER, BUTCHER, CARTOGRAPHER, CLERIC, FARMER,
+#       FISHERMAN, FLETCHER, LEATHERWORKER, LIBRARIAN, MASON,
+#       NITWIT, SHEPHERD, TOOLSMITH, WEAPONSMITH
+# ============================================================
+trades:
+  FARMER:
+    1:
+      - give1: WHEAT
+        give1_amount: 20
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 1
+        result: BREAD
+        result_amount: 6
+    2:
+      - give1: CARROT
+        give1_amount: 22
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 2
+        result: APPLE
+        result_amount: 4
+    3:
+      - give1: BEETROOT
+        give1_amount: 15
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 3
+        result: PUMPKIN_PIE
+        result_amount: 2
+  ARMORER:
+    1:
+      - give1: IRON_INGOT
+        give1_amount: 4
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 7
+        result: IRON_LEGGINGS
+        result_amount: 1
+    2:
+      - give1: COAL
+        give1_amount: 15
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 4
+        give2: IRON_INGOT
+        give2_amount: 2
+        result: IRON_HELMET
+        result_amount: 1
+  WEAPONSMITH:
+    1:
+      - give1: IRON_INGOT
+        give1_amount: 4
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 3
+        result: IRON_AXE
+        result_amount: 1
+    2:
+      - give1: COAL
+        give1_amount: 15
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 8
+        give2: STICK
+        give2_amount: 2
+        result: IRON_SWORD
+        result_amount: 1
+  LIBRARIAN:
+    1:
+      - give1: PAPER
+        give1_amount: 24
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 9
+        result: BOOK
+        result_amount: 1
+    2:
+      - give1: BOOK
+        give1_amount: 4
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 10
+        result: ENCHANTED_BOOK
+        result_amount: 1
+  CLERIC:
+    1:
+      - give1: ROTTEN_FLESH
+        give1_amount: 32
+        result: EMERALD
+        result_amount: 1
+      - give1: EMERALD
+        give1_amount: 1
+        result: REDSTONE
+        result_amount: 2

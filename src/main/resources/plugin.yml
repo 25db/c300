@@ -1,0 +1,20 @@
+name: VillagerTradesEdit
+version: ${project.version}
+main: com.example.villagertradesedit.VillagerTradesEditPlugin
+api-version: '1.21'
+folia-supported: true
+author: YourName
+description: 修改村民交易列表的插件, 类似 VillagerTradesEdit mod。
+commands:
+  vte:
+    description: VillagerTradesEdit 主命令
+    usage: |
+      /vte reload - 重新加载配置
+      /vte apply - 对 10 格内村民立即应用交易
+      /vte list - 列出当前配置的交易
+    aliases: [villagertradesedit, villagertrades]
+    permission: vte.admin
+permissions:
+  vte.admin:
+    description: 允许管理 VillagerTradesEdit
+    default: op
