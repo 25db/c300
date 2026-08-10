@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- MC 方块（等距视角简化） -->
+    <path
+        android:fillColor="@color/launcher_foreground"
+        android:pathData="M54,28L78,40L78,68L54,80L30,68L30,40Z" />
+    <path
+        android:fillColor="#FF9D7CFF"
+        android:pathData="M54,28L78,40L54,52L30,40Z" />
+    <path
+        android:fillColor="#FF536DFE"
+        android:pathData="M54,52L78,40L78,68L54,80Z" />
+    <path
+        android:fillColor="#FF6A1B9A"
+        android:pathData="M54,52L30,40L30,68L54,80Z" />
+</vector>

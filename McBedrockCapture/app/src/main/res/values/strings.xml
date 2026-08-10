@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">MC基岩抓包</string>
+    <string name="open_floating">打开悬浮窗</string>
+    <string name="floating_title">MC抓包</string>
+    <string name="status_ready">就绪 · 点击开始抓包</string>
+    <string name="status_capturing">抓包中…(1秒)</string>
+    <string name="status_done">抓包完成</string>
+    <string name="status_empty">未识别到网易服务器</string>
+    <string name="status_error">抓包失败，请重试</string>
+    <string name="btn_capture">开始抓包</string>
+    <string name="btn_copy">复制</string>
+    <string name="btn_close">关闭</string>
+    <string name="ip_placeholder">等待识别服务器…</string>
+    <string name="copied">已复制到剪贴板</string>
+    <string name="capture_notif_title">MC抓包运行中</string>
+    <string name="capture_notif_text">正在识别网易我的世界服务器IP…</string>
+    <string name="floating_notif_title">MC抓包悬浮窗</string>
+    <string name="floating_notif_text">点击管理抓包</string>
+    <string name="channel_capture">抓包服务</string>
+    <string name="channel_floating">悬浮窗</string>
+</resources>

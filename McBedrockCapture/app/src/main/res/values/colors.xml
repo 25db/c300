@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_glass_start">#E61A1A2E</color>
+    <color name="bg_glass_center">#E6182746</color>
+    <color name="bg_glass_end">#E616213E</color>
+    <color name="glass_stroke">#33FFFFFF</color>
+
+    <color name="card_ip_bg">#992A2A4E</color>
+    <color name="card_ip_stroke">#447C4DFF</color>
+
+    <color name="btn_primary_start">#FF7C4DFF</color>
+    <color name="btn_primary_end">#FF536DFE</color>
+    <color name="btn_secondary_bg">#4DFFFFFF</color>
+
+    <color name="collapsed_bg">#CC1A1A2E</color>
+
+    <color name="text_primary">#FFFFFFFF</color>
+    <color name="text_secondary">#CCB0B0CC</color>
+    <color name="accent">#FF9D7CFF</color>
+
+    <color name="ic_launcher_background">#1A1A2E</color>
+    <color name="launcher_foreground">#7C4DFF</color>
+</resources>
